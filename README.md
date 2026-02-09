@@ -40,17 +40,17 @@ Before you begin, ensure you have one of the following installed:
 #### Step 1: Clone or Download the Project
 
 ```bash
-cd d:\anuyog_assignment
+cd d:\
 ```
 
-Or download and extract the ZIP file to `d:\anuyog_assignment`
+Or download and extract the ZIP file to `d:\`
 
 #### Step 2: Verify File Structure
 
 Ensure your directory has the following structure:
 
 ```
-d:\anuyog_assignment\
+d:\
 │
 ├── index.html              # Main HTML file
 ├── app.js                  # Application logic and routing
@@ -77,7 +77,7 @@ You **MUST** use a local web server (file:// protocol won't work due to CORS res
 1. Open **PowerShell** or **Command Prompt**
 2. Navigate to the project folder:
    ```powershell
-   cd d:\anuyog_assignment
+   cd d:\
    ```
 
 3. Run the Python server:
@@ -103,7 +103,7 @@ You **MUST** use a local web server (file:// protocol won't work due to CORS res
 
 3. Open the project folder in VS Code:
    ```
-   File → Open Folder → Select d:\anuyog_assignment
+   File → Open Folder → Select d:
    ```
 
 4. Right-click on `index.html` → **"Open with Live Server"**
@@ -120,7 +120,7 @@ You **MUST** use a local web server (file:// protocol won't work due to CORS res
 1. Open **PowerShell** or **Command Prompt**
 2. Navigate to the project folder:
    ```powershell
-   cd d:\anuyog_assignment
+   cd d:\
    ```
 
 3. Run the http-server:
@@ -406,7 +406,7 @@ The application is fully responsive and works on:
 ## 📁 Project Structure Details
 
 ```
-d:\anuyog_assignment\
+d:\
 │
 ├── index.html                 # Main HTML structure
 │   ├── Header (Chatbot/Admin buttons)
