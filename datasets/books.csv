@@ -1,0 +1,26 @@
+book_id,title,author,genre,price,stock
+B001,Atomic Habits,James Clear,Self-Help,499,25
+B002,The Alchemist,Paulo Coelho,Fiction,299,18
+B003,Harry Potter and the Sorcerer's Stone,J.K. Rowling,Fantasy,399,30
+B004,Harry Potter and the Chamber of Secrets,J.K. Rowling,Fantasy,399,22
+B005,Rich Dad Poor Dad,Robert Kiyosaki,Finance,350,15
+B006,Deep Work,Cal Newport,Productivity,450,12
+B007,Ikigai,Hector Garcia,Self-Help,320,20
+B008,The Psychology of Money,Morgan Housel,Finance,410,17
+B009,Sapiens,Yuval Noah Harari,History,550,10
+B010,The Power of Now,Eckhart Tolle,Spirituality,380,9
+B011,Think and Grow Rich,Napoleon Hill,Finance,280,14
+B012,The Hobbit,J.R.R. Tolkien,Fantasy,420,16
+B013,To Kill a Mockingbird,Harper Lee,Fiction,300,11
+B014,1984,George Orwell,Fiction,310,8
+B015,The Subtle Art of Not Giving a F*ck,Mark Manson,Self-Help,360,19
+B016,Zero to One,Peter Thiel,Business,470,7
+B017,The Lean Startup,Eric Ries,Business,520,13
+B018,Can't Hurt Me,David Goggins,Biography,480,6
+B019,The Silent Patient,Alex Michaelides,Thriller,340,21
+B020,Atomic Habits Workbook,James Clear,Self-Help,250,24
+B021,Dune,Frank Herbert,Sci-Fi,600,10
+B022,Project Hail Mary,Andy Weir,Sci-Fi,520,12
+B023,The Name of the Wind,Patrick Rothfuss,Fantasy,580,5
+B024,The Girl with the Dragon Tattoo,Stieg Larsson,Thriller,410,14
+B025,Educated,Tara Westover,Biography,390,9

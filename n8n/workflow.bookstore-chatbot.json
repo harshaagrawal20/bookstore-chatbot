@@ -1,0 +1,319 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "bookstore-chat",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "a4e53a6b-6b79-4fef-90fa-9949afafb977",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -512,
+        144
+      ],
+      "webhookId": "d8d7043b-b522-4485-856f-6d55387b5528"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "0aa75f55-948d-4a15-b20d-f691f3b86f27",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        800,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const message = $('Webhook').first().json.body.message || \"\";\nconst lowerMessage = message.toLowerCase().trim();\n\nlet intent = \"unknown\";\nlet orderId = null;\nlet searchTerm = message;\n\n\n// Order status - highest priority\nconst orderPattern = /#?([oO]?\\d{4,})/;\nconst orderMatch = message.match(orderPattern);\n\nif (orderMatch || lowerMessage.match(/order|track|shipping|shipped|delivery|status|where.*my/)) {\n  intent = \"order_status\";\n  if (orderMatch) {\n    orderId = orderMatch[1].replace(/^[oO]/, '');\n  }\n}\n\n// Book search by genre\nelse if (lowerMessage.match(/fiction|fantasy|finance|business|self-help|self help|thriller|history|biography|sci-fi|scifi|productivity|spirituality/)) {\n  intent = \"book_search\";\n  // Extract genre\n  const genreMap = {\n    'fiction': 'Fiction',\n    'fantasy': 'Fantasy', \n    'finance': 'Finance',\n    'business': 'Business',\n    'self-help': 'Self-Help',\n    'self help': 'Self-Help',\n    'thriller': 'Thriller',\n    'history': 'History',\n    'biography': 'Biography',\n    'sci-fi': 'Sci-Fi',\n    'scifi': 'Sci-Fi',\n    'productivity': 'Productivity',\n    'spirituality': 'Spirituality'\n  };\n  \n  for (let key in genreMap) {\n    if (lowerMessage.includes(key)) {\n      searchTerm = genreMap[key];\n      break;\n    }\n  }\n}\n\n// Book search by author\nelse if (lowerMessage.match(/by |author|written by|books? from/)) {\n  intent = \"book_search\";\n  searchTerm = message.replace(/show|find|search|books?|by|author|written|from/gi, '').trim();\n}\n\n// Availability check\nelse if (lowerMessage.match(/available|in stock|do you have|stock|availability/)) {\n  intent = \"availability\";\n  searchTerm = message.replace(/is|available|in stock|do you have|\\?/gi, '').trim();\n}\n\n// List all genres - FIXED THIS PART\nelse if (lowerMessage.match(/what genres|which genres|list genres|show genres|categories|types? of books|all genres|available genres|genres available/)) {\n  intent = \"list_genres\";\n}\n\n// Store timings - ADDED THIS PART\nelse if (lowerMessage.match(/timing|timings|hours?|open|close|when.*open|when.*close|store.*time|shop.*time|working hours|business hours/)) {\n  intent = \"store_timings\";\n}\n\n// Specific FAQ questions\nelse if (lowerMessage.match(/delivery charge|shipping charge|delivery fee/)) {\n  intent = \"faq\";\n  searchTerm = \"delivery charges\";\n}\n\nelse if (lowerMessage.match(/how long|delivery time|when.*deliver/)) {\n  intent = \"faq\";\n  searchTerm = \"delivery take\";\n}\n\nelse if (lowerMessage.match(/cancel|cancellation/)) {\n  intent = \"faq\";\n  searchTerm = \"cancel\";\n}\n\nelse if (lowerMessage.match(/refund/)) {\n  intent = \"faq\";\n  searchTerm = \"refund\";\n}\n\nelse if (lowerMessage.match(/payment|pay|upi|card|net banking/)) {\n  intent = \"faq\";\n  searchTerm = \"payment\";\n}\n\nelse if (lowerMessage.match(/cash on delivery|cod/)) {\n  intent = \"faq\";\n  searchTerm = \"cash on delivery\";\n}\n\nelse if (lowerMessage.match(/track.*order/)) {\n  intent = \"faq\";\n  searchTerm = \"track\";\n}\n// Add this section in detect intent\nelse if (lowerMessage.match(/^help$|what can you do|how.*work|commands|options|menu|start/)) {\n  intent = \"help\";\n}\nelse if (lowerMessage.match(/recommend|suggest|popular|bestseller|trending|what should i read/)) {\n  intent = \"recommend\";\n}\n\nreturn [{\n  json: {\n    intent: intent,\n    message: searchTerm,\n    orderId: orderId,\n    originalMessage: message\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -192,
+        112
+      ],
+      "id": "fc1355e5-58ac-42b8-a4cd-00d223733507",
+      "name": "detect intent"
+    },
+    {
+      "parameters": {
+        "jsCode": "const intentData = $('detect intent').first().json;\nconst intent = intentData.intent;\nconst message = intentData.message || \"\";\nconst orderId = intentData.orderId;\n\nconst allData = $('Merge').all();\n\nconst books = allData.filter(item => item.json.book_id !== undefined).map(i => i.json);\nconst orders = allData.filter(item => item.json.order_id !== undefined).map(i => i.json);\nconst faqs = allData.filter(item => item.json.faq_id !== undefined).map(i => i.json);\n\nlet reply = \"I can help you with:\\n• Track orders (e.g., 'order O1015')\\n• Search books by genre or author\\n• Check book availability\\n• View all genres\\n• FAQs about delivery, payment, etc.\";\n\n// Helper function for similarity score\nfunction similarity(s1, s2) {\n  const longer = s1.length > s2.length ? s1 : s2;\n  const shorter = s1.length > s2.length ? s2 : s1;\n  if (longer.length === 0) return 1.0;\n  const editDistance = (s1, s2) => {\n    s1 = s1.toLowerCase();\n    s2 = s2.toLowerCase();\n    const costs = [];\n    for (let i = 0; i <= s1.length; i++) {\n      let lastValue = i;\n      for (let j = 0; j <= s2.length; j++) {\n        if (i === 0) costs[j] = j;\n        else if (j > 0) {\n          let newValue = costs[j - 1];\n          if (s1.charAt(i - 1) !== s2.charAt(j - 1))\n            newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1;\n          costs[j - 1] = lastValue;\n          lastValue = newValue;\n        }\n      }\n      if (i > 0) costs[s2.length] = lastValue;\n    }\n    return costs[s2.length];\n  };\n  return (longer.length - editDistance(longer, shorter)) / longer.length;\n}\n\n// ORDER STATUS\nif (intent === \"order_status\") {\n  if (orderId) {\n    const order = orders.find(o => String(o.order_id).replace(/^O/, '') === String(orderId).replace(/^O/, ''));\n    if (order) {\n      const bookInfo = books.find(b => b.book_id === order.book_id);\n      const statusEmoji = {\n        'Shipped': '🚚',\n        'Delivered': '✅',\n        'Processing': '⏳',\n        'Cancelled': '❌'\n      };\n      \n      reply = `${statusEmoji[order.status] || '📦'} Order #${order.order_id}\\n\\n` +\n              `Status: ${order.status}\\n` +\n              `Customer: ${order.customer_name}\\n` +\n              `Book: ${bookInfo ? bookInfo.title : order.book_id}\\n` +\n              `Quantity: ${order.quantity}\\n` +\n              `Order Date: ${order.order_date}\\n` +\n              (order.delivery_date ? `Delivery Date: ${order.delivery_date}` : 'Delivery date: To be confirmed');\n    } else {\n      reply = `❌ Order #${orderId} not found.\\n\\nPlease check the order number and try again.`;\n    }\n  } else {\n    reply = \"Please provide your order number.\\n\\nExample: 'track order O1015' or just 'O1015'\";\n  }\n}\n\n// BOOK SEARCH with fuzzy matching\nelse if (intent === \"book_search\") {\n  const searchLower = message.toLowerCase();\n  \n  // First try exact genre match\n  let matches = books.filter(b => b.genre === message);\n  \n  if (matches.length === 0) {\n    // Fuzzy search\n    matches = books\n      .map(b => ({\n        ...b,\n        score: Math.max(\n          similarity(searchLower, (b.title || \"\").toLowerCase()),\n          similarity(searchLower, (b.author || \"\").toLowerCase()),\n          similarity(searchLower, (b.genre || \"\").toLowerCase())\n        )\n      }))\n      .filter(b => b.score > 0.4) // Threshold for similarity\n      .sort((a, b) => b.score - a.score)\n      .slice(0, 8);\n  }\n  \n  if (matches.length > 0) {\n    reply = `📚 Found ${matches.length} book(s):\\n\\n` + \n            matches.map((b, i) => \n              `${i + 1}. 📖 ${b.title}\\n` +\n              `   Author: ${b.author}\\n` +\n              `   Genre: ${b.genre}\\n` +\n              `   Price: ₹${b.price} | Stock: ${b.stock > 0 ? b.stock + ' available' : 'Out of stock'}`\n            ).join('\\n\\n') +\n            `\\n\\nReply with the number (e.g., \"1\" or \"first\") for more details.`;\n  } else {\n    reply = `No books found for \"${message}\".\\n\\nTry:\\n• Genre names (Fiction, Fantasy, Finance, etc.)\\n• Author names (J.K. Rowling, James Clear, etc.)\\n• Or ask \"what genres are available?\"`;\n  }\n}\n\n// AVAILABILITY CHECK\nelse if (intent === \"availability\") {\n  const match = books.find(b => (b.title || \"\").toLowerCase().includes(message.toLowerCase()));\n  if (match) {\n    const inStock = match.stock > 0;\n    reply = `📖 ${match.title}\\n` +\n            `Author: ${match.author}\\n` +\n            `Genre: ${match.genre}\\n` +\n            `Price: ₹${match.price}\\n` +\n            (inStock ? `✅ In Stock: ${match.stock} copies available` : '❌ Out of stock');\n  } else {\n    reply = `Book not found.\\n\\nPlease provide the full or partial book title.`;\n  }\n}\n\n// LIST GENRES\nelse if (intent === \"list_genres\") {\n  const genreCount = {};\n  books.forEach(b => {\n    genreCount[b.genre] = (genreCount[b.genre] || 0) + 1;\n  });\n  \n  const genres = Object.keys(genreCount).sort();\n  reply = `📚 Available Genres (${genres.length}):\\n\\n` +\n          genres.map(g => `• ${g} (${genreCount[g]} books)`).join('\\n') +\n          '\\n\\nAsk me to show books in any genre!';\n}\n\n// STORE TIMINGS\nelse if (intent === \"store_timings\") {\n  const timingFaq = faqs.find(f => \n    (f.question || \"\").toLowerCase().includes(\"timing\") || \n    (f.question || \"\").toLowerCase().includes(\"hour\") ||\n    (f.question || \"\").toLowerCase().includes(\"open\")\n  );\n  \n  if (timingFaq) {\n    reply = `🕒 ${timingFaq.question}\\n\\n${timingFaq.answer}`;\n  } else {\n    // Hardcoded fallback\n    reply = `🕒 Store Timings:\\n\\nWe are open:\\nMonday - Sunday: 9:00 AM - 9:00 PM\\n\\nVisit us anytime!`;\n  }\n}\n\n// FAQ\nelse if (intent === \"faq\") {\n  const relevantFaq = faqs.find(f => \n    (f.question || \"\").toLowerCase().includes(message.toLowerCase()) ||\n    (f.answer || \"\").toLowerCase().includes(message.toLowerCase())\n  );\n  \n  if (relevantFaq) {\n    reply = `❓ ${relevantFaq.question}\\n\\n✅ ${relevantFaq.answer}`;\n  } else {\n    // Show all FAQs\n    reply = `💡 Frequently Asked Questions:\\n\\n` +\n            faqs.map((f, i) => `${i + 1}. ${f.question}`).join('\\n') +\n            '\\n\\nAsk me any of these questions!';\n  }\n}\n\n// HELP\nelse if (intent === \"help\") {\n  reply = `👋 Welcome to Bookstore Chatbot!\\n\\n` +\n          `I can help you with:\\n\\n` +\n          `📦 **Track Orders**\\n` +\n          `   Example: \"order O1015\" or \"track my order\"\\n\\n` +\n          `📚 **Search Books**\\n` +\n          `   By genre: \"fiction books\", \"fantasy books\"\\n` +\n          `   By author: \"books by J.K. Rowling\"\\n\\n` +\n          `✅ **Check Availability**\\n` +\n          `   Example: \"is Atomic Habits available?\"\\n\\n` +\n          `📋 **Browse Genres**\\n` +\n          `   Example: \"what genres are available?\"\\n\\n` +\n          `❓ **FAQs**\\n` +\n          `   Ask about delivery, refunds, payment, etc.\\n\\n` +\n          `🕒 **Store Timings**\\n` +\n          `   Example: \"when are you open?\"\\n\\n` +\n          `Type any question to get started!`;\n}\n\n// BOOK RECOMMENDATIONS\nelse if (intent === \"recommend\" || intent === \"suggestion\") {\n  // Get user's order history to recommend similar books\n  const userOrders = orders.filter(o => o.customer_name); // In production, filter by actual user\n  \n  if (userOrders.length > 0) {\n    // Get genres from their orders\n    const orderedBookIds = userOrders.map(o => o.book_id);\n    const orderedBooks = books.filter(b => orderedBookIds.includes(b.book_id));\n    const userGenres = [...new Set(orderedBooks.map(b => b.genre))];\n    \n    // Recommend books from those genres they haven't ordered\n    const recommendations = books\n      .filter(b => userGenres.includes(b.genre) && !orderedBookIds.includes(b.book_id))\n      .filter(b => b.stock > 0)\n      .slice(0, 5);\n    \n    if (recommendations.length > 0) {\n      reply = `📚 Based on your reading history, you might like:\\n\\n` +\n              recommendations.map(b => \n                `📖 ${b.title}\\n` +\n                `   ${b.author} | ${b.genre} | ₹${b.price}`\n              ).join('\\n\\n');\n    } else {\n      // Fallback to bestsellers\n      const bookOrderCounts = {};\n      orders.forEach(o => {\n        bookOrderCounts[o.book_id] = (bookOrderCounts[o.book_id] || 0) + parseInt(o.quantity);\n      });\n      \n      const bestsellers = books\n        .map(b => ({ ...b, orderCount: bookOrderCounts[b.book_id] || 0 }))\n        .sort((a, b) => b.orderCount - a.orderCount)\n        .filter(b => b.stock > 0)\n        .slice(0, 5);\n      \n      reply = `🔥 Our Bestsellers:\\n\\n` +\n              bestsellers.map(b => \n                `📖 ${b.title}\\n` +\n                `   ${b.author} | ${b.genre} | ₹${b.price}\\n` +\n                `   ${b.orderCount} orders`\n              ).join('\\n\\n');\n    }\n  } else {\n    // No history, show bestsellers (books with most orders)\n    const bookOrderCounts = {};\n    orders.forEach(o => {\n      bookOrderCounts[o.book_id] = (bookOrderCounts[o.book_id] || 0) + parseInt(o.quantity);\n    });\n    \n    const bestsellers = books\n      .map(b => ({ ...b, orderCount: bookOrderCounts[b.book_id] || 0 }))\n      .sort((a, b) => b.orderCount - a.orderCount)\n      .filter(b => b.stock > 0)\n      .slice(0, 5);\n    \n    reply = `🔥 Our Bestsellers:\\n\\n` +\n            bestsellers.map(b => \n              `📖 ${b.title}\\n` +\n              `   ${b.author} | ${b.genre} | ₹${b.price}\\n` +\n              `   ${b.orderCount} orders`\n            ).join('\\n\\n');\n  }\n}\n\nreturn [{ json: { reply }}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        656,
+        176
+      ],
+      "id": "d83badab-1c77-4399-885c-9d06dc8b2fc4",
+      "name": "compose reply"
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        304,
+        144
+      ],
+      "id": "193d916e-badd-4e31-aacf-d1b70e9662a5",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1AsKm0GnIt8XChlFWvK8RSVNHW3mHjrEMfJpUfeCpCLo",
+          "mode": "list",
+          "cachedResultName": "books",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1AsKm0GnIt8XChlFWvK8RSVNHW3mHjrEMfJpUfeCpCLo/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1139338600,
+          "mode": "list",
+          "cachedResultName": "books",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1AsKm0GnIt8XChlFWvK8RSVNHW3mHjrEMfJpUfeCpCLo/edit#gid=1139338600"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -32,
+        -64
+      ],
+      "id": "12761255-5c9b-4914-b74a-f835ec099539",
+      "name": "books",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "URjRBDyYYpOjboE3",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1NcLiHGB1UFA9KUPnHkdUjudha9dD_xM9RpYJMMYCPYY",
+          "mode": "list",
+          "cachedResultName": "orders",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1NcLiHGB1UFA9KUPnHkdUjudha9dD_xM9RpYJMMYCPYY/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 127630953,
+          "mode": "list",
+          "cachedResultName": "orders",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1NcLiHGB1UFA9KUPnHkdUjudha9dD_xM9RpYJMMYCPYY/edit#gid=127630953"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -48,
+        96
+      ],
+      "id": "fa34483c-f27a-4b4c-86fc-a041565eb317",
+      "name": "orders",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "URjRBDyYYpOjboE3",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "177DndK6fQ-cHgjqT_LEdkSZGladz0N86vu-h1uxMkYk",
+          "mode": "list",
+          "cachedResultName": "faq",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/177DndK6fQ-cHgjqT_LEdkSZGladz0N86vu-h1uxMkYk/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1338520715,
+          "mode": "list",
+          "cachedResultName": "faq",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/177DndK6fQ-cHgjqT_LEdkSZGladz0N86vu-h1uxMkYk/edit#gid=1338520715"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -48,
+        272
+      ],
+      "id": "4c6941f2-098e-4bfa-9420-777354be9cbe",
+      "name": "faq",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "URjRBDyYYpOjboE3",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Check if all data sources loaded successfully\nconst allData = $('Merge').all();\n\nconst hasBooks = allData.some(item => item.json.book_id !== undefined);\nconst hasOrders = allData.some(item => item.json.order_id !== undefined);\nconst hasFaqs = allData.some(item => item.json.faq_id !== undefined);\n\nif (!hasBooks || !hasOrders || !hasFaqs) {\n  return [{ \n    json: { \n      error: true,\n      missing: {\n        books: !hasBooks,\n        orders: !hasOrders,\n        faqs: !hasFaqs\n      }\n    } \n  }];\n}\n\nreturn [{ json: { error: false } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        496,
+        176
+      ],
+      "id": "b7db7e97-25ad-4ed0-ab7b-8ac3b652fc06",
+      "name": "check data loaded"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $('Webhook').first().json.body || {};\nconst message = (body.message || \"\").trim();\n\n// Validation checks\nconst errors = [];\n\nif (!message) {\n  errors.push(\"Message is empty\");\n}\n\nif (message.length > 500) {\n  errors.push(\"Message too long (max 500 characters)\");\n}\n\n// Check for spam patterns\nif (message.match(/(.)\\1{10,}/)) { // repeated characters\n  errors.push(\"Invalid message format\");\n}\n\n// Blocked words/spam\nconst blockedWords = ['viagra', 'casino', 'lottery'];\nif (blockedWords.some(word => message.toLowerCase().includes(word))) {\n  errors.push(\"Inappropriate content detected\");\n}\n\nif (errors.length > 0) {\n  return [{ \n    json: { \n      valid: false, \n      error: errors[0],\n      message: message\n    } \n  }];\n}\n\nreturn [{ \n  json: { \n    valid: true, \n    message: message \n  } \n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -336,
+        112
+      ],
+      "id": "813c6a0b-5941-4ccd-9a8e-75583eea1bc8",
+      "name": "validate input"
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "validate input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond to Webhook": {
+      "main": [
+        []
+      ]
+    },
+    "detect intent": {
+      "main": [
+        [
+          {
+            "node": "books",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "orders",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "faq",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "compose reply": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "check data loaded",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "books": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "orders": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "faq": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "check data loaded": {
+      "main": [
+        [
+          {
+            "node": "compose reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "validate input": {
+      "main": [
+        [
+          {
+            "node": "detect intent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "0b0668c7b6ab2817a8ba4463182427736b6d417e97280e7ae063386a9eb49473"
+  }
+}

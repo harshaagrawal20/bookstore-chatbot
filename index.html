@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bookstore Chatbot</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Login Modal -->
+    <div id="loginModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <i class="fas fa-lock"></i>
+                <h2>Admin Login</h2>
+            </div>
+            <form id="loginForm">
+                <div class="input-group">
+                    <i class="fas fa-user"></i>
+                    <input type="text" id="username" placeholder="Username" required>
+                </div>
+                <div class="input-group">
+                    <i class="fas fa-key"></i>
+                    <input type="password" id="password" placeholder="Password" required>
+                </div>
+                <button type="submit" class="btn-primary">
+                    <i class="fas fa-sign-in-alt"></i> Login
+                </button>
+                <div id="loginError" class="error-message"></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main Container -->
+    <div class="container">
+        <!-- Header with Tabs -->
+        <div class="header-tabs">
+            <div class="header-brand">
+                <i class="fas fa-book-open"></i>
+                <h1>Bookstore Chatbot</h1>
+            </div>
+            <div class="tabs">
+                <button class="tab-button chatbot-route-btn active" data-tab="chat">
+                    <i class="fas fa-robot"></i> Chatbot
+                </button>
+                <button class="tab-button" data-tab="admin">
+                    <i class="fas fa-user-shield"></i> Admin
+                </button>
+            </div>
+            <div class="header-actions">
+                <span id="adminUsername" class="admin-name hidden"></span>
+                <button id="logoutBtn" class="btn-logout hidden">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </button>
+            </div>
+        </div>
+
+        <!-- Chat Tab -->
+        <div id="chat" class="tab-panel active">
+            <div class="chat-wrapper">
+                <div class="chat-header">
+                    <div class="bot-info">
+                        <div class="bot-avatar-large">
+                            <i class="fas fa-robot"></i>
+                        </div>
+                        <div>
+                            <h2>Bookstore Assistant</h2>
+                            <p class="bot-status"><i class="fas fa-circle"></i> Always Active</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="chat-messages">
+                    <div id="messageList">
+                        <div class="welcome-message">
+                            <i class="fas fa-book-reader"></i>
+                            <h3>Welcome to Bookstore Chatbot! 📚</h3>
+                            <p>Ask me about:</p>
+                            <ul>
+                                <li>📦 Order status (e.g., "Where is order #1003?")</li>
+                                <li>📚 Book search (e.g., "Show fiction books")</li>
+                                <li>🏪 Store information (e.g., "Store timings")</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div id="typingIndicator" class="typing-indicator hidden">
+                        <span></span><span></span><span></span>
+                    </div>
+                </div>
+
+                <!-- Add to HTML after #messageList -->
+                <div class="empty-state" id="emptyChat" style="display: none;">
+                    <div class="empty-state-icon">
+                        <i class="fas fa-inbox"></i>
+                    </div>
+                    <h3>No messages yet</h3>
+                    <p>Start a conversation by asking about books, orders, or store information.</p>
+                    <div class="empty-state-actions">
+                        <button onclick="quickMessage('Show fiction books')" class="quick-reply-chip">
+                            📚 Browse Fiction
+                        </button>
+                        <button onclick="quickMessage('What are your store hours?')" class="quick-reply-chip">
+                            🕐 Store Hours
+                        </button>
+                        <button onclick="quickMessage('Track my order')" class="quick-reply-chip">
+                            📦 Track Order
+                        </button>
+                    </div>
+                </div>
+
+                <form id="chatForm" class="chat-input-form">
+                    <input 
+                        type="text" 
+                        id="chatInput" 
+                        placeholder="Type your message here..."
+                        autocomplete="off"
+                        required
+                    >
+                    <button type="submit" class="send-btn">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Admin Tab -->
+        <div id="admin" class="tab-panel">
+            <div id="adminContent" class="admin-wrapper">
+                <!-- Statistics -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon books">
+                            <i class="fas fa-book"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3>Total Books</h3>
+                            <p id="totalBooks" class="stat-value">0</p>
+                            <span id="booksTrend" class="stat-trend"></span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon orders">
+                            <i class="fas fa-shopping-cart"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3>Total Orders</h3>
+                            <p id="totalOrders" class="stat-value">0</p>
+                            <span id="ordersTrend" class="stat-trend"></span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon chats">
+                            <i class="fas fa-comments"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3>Chat Messages</h3>
+                            <p id="totalChats" class="stat-value">0</p>
+                            <span id="chatsTrend" class="stat-trend"></span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon revenue">
+                            <i class="fas fa-dollar-sign"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3>Avg Order Value</h3>
+                            <p id="avgOrderValue" class="stat-value">$0</p>
+                            <span class="stat-trend positive"><i class="fas fa-arrow-up"></i> 12%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Analytics Charts Section -->
+                <div class="analytics-section">
+                    <div class="analytics-header">
+                        <h2><i class="fas fa-chart-bar"></i> Analytics Dashboard</h2>
+                        <div class="analytics-actions">
+                            <button class="btn-secondary" onclick="window.location.reload()">
+                                <i class="fas fa-sync-alt"></i> Refresh
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="analytics-row">
+                        <!-- Order Status Chart -->
+                        <div class="analytics-card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-chart-pie"></i> Order Status Distribution</h3>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="orderStatusChart" width="400" height="280"></canvas>
+                            </div>
+                            <div class="chart-legend" id="orderLegend"></div>
+                        </div>
+
+                        <!-- Chat Activity Chart -->
+                        <div class="analytics-card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-chart-line"></i> Chat Activity (Last 7 Days)</h3>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="chatActivityChart" width="400" height="280"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="analytics-row">
+                        <!-- Top Books -->
+                        <div class="analytics-card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-trophy"></i> Top 5 Popular Books</h3>
+                            </div>
+                            <div class="top-items-list" id="topBooksList">
+                                <div class="loading-placeholder">Loading data...</div>
+                            </div>
+                        </div>
+
+                        <!-- Recent Activity -->
+                        <div class="analytics-card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-clock"></i> Recent Activity</h3>
+                            </div>
+                            <div class="activity-timeline" id="activityTimeline">
+                                <div class="loading-placeholder">Loading activity...</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Genre Distribution -->
+                    <div class="analytics-row">
+                        <div class="analytics-card full-width">
+                            <div class="card-header">
+                                <h3><i class="fas fa-tags"></i> Book Genre Distribution</h3>
+                            </div>
+                            <div class="genre-bars" id="genreBars">
+                                <div class="loading-placeholder">Loading genres...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Books Section -->
+                <div class="admin-section">
+                    <div class="section-header">
+                        <h2><i class="fas fa-book"></i> Books Database</h2>
+                        <div class="search-box">
+                            <i class="fas fa-search"></i>
+                            <input type="text" id="bookSearch" placeholder="Search books...">
+                        </div>
+                    </div>
+                    <div class="table-wrapper">
+                        <table id="booksTable">
+                            <thead>
+                                <tr>
+                                    <th>Title</th>
+                                    <th>Author</th>
+                                    <th>Genre</th>
+                                    <th>Price</th>
+                                    <th>Availability</th>
+                                </tr>
+                            </thead>
+                            <tbody id="booksTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Orders Section -->
+                <div class="admin-section">
+                    <div class="section-header">
+                        <h2><i class="fas fa-shopping-cart"></i> Orders</h2>
+                        <div class="search-box">
+                            <i class="fas fa-search"></i>
+                            <input type="text" id="orderSearch" placeholder="Search orders...">
+                        </div>
+                    </div>
+                    <div class="table-wrapper">
+                        <table id="ordersTable">
+                            <thead>
+                                <tr>
+                                    <th>Order ID</th>
+                                    <th>Customer</th>
+                                    <th>Status</th>
+                                    <th>ETA</th>
+                                    <th>Book</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ordersTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Chat Logs Section -->
+                <div class="admin-section">
+                    <div class="section-header">
+                        <h2><i class="fas fa-history"></i> Chat Logs</h2>
+                        <button id="clearLogs" class="btn-secondary">
+                            <i class="fas fa-trash"></i> Clear Logs
+                        </button>
+                    </div>
+                    <div class="table-wrapper">
+                        <table id="logsTable">
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Role</th>
+                                    <th>Message</th>
+                                </tr>
+                            </thead>
+                            <tbody id="logsTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="adminLocked" class="admin-locked">
+                <div class="locked-content">
+                    <i class="fas fa-lock"></i>
+                    <h2>Admin Access Required</h2>
+                    <p>Please login to view admin dashboard</p>
+                    <button id="adminLockedLoginBtn" class="btn-primary">
+                        <i class="fas fa-sign-in-alt"></i> Login as Admin
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
